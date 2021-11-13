@@ -12,12 +12,15 @@ module.exports.handler = async (event) => {
       address: {
         S: event.input.address
       },
+      price: {
+        N: event.input.price
+      },
+      productId: {
+        S: event.input.productId
+      },
       taskToken: {
         S: event.taskToken
       },
-      price: {
-        N: event.input.price
-      }
     }
   }).promise()
 };

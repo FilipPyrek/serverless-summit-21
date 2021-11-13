@@ -6,13 +6,15 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient()
 const stepFunctions = new AWS.StepFunctions()
 
 module.exports.handler = async (event) => {
+  console.log('Pulling ledger data...')
   const { Items: blocks = [] } = await dynamoDb.scan({
     TableName: process.env.BITCOIN_LEDGER,
   }).promise()
 
   for(const block of blocks) {
+    console.log('Processing block...')
+
     for(const transaction of block.transactions) {
-      
       const { Item: pendingTransaction } = await dynamoDb.get({
         TableName: process.env.PENDING_TRANSACTIONS_TABLE,
         Key: {
@@ -21,6 +23,8 @@ module.exports.handler = async (event) => {
       }).promise()
 
       if (pendingTransaction && pendingTransaction.price === transaction.amount) {
+        console.log('Transaction found...')
+        
         await stepFunctions.sendTaskSuccess({
           taskToken: pendingTransaction.taskToken,
           output: JSON.stringify({
@@ -36,6 +40,8 @@ module.exports.handler = async (event) => {
             address: pendingTransaction.address
           }
         }).promise()
+
+        console.log('Transaction processed...')
       }
     }
 
@@ -45,5 +51,6 @@ module.exports.handler = async (event) => {
         blockHash: block.blockHash
       }
     }).promise()
+    console.log('Block processed...')
   }
 };
