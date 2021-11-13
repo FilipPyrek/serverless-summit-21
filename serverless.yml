@@ -18,7 +18,8 @@ provider:
     - Effect: Allow
       Action:
         - states:SendTaskSuccess
-      Resource: "*"
+        - states:StartExecution
+      Resource: "*" # Because of circular dependencies
     - Effect: Allow
       Action:
         - dynamodb:PutItem
