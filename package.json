@@ -1,0 +1,21 @@
+{
+  "name": "serverless-summit-21",
+  "version": "1.0.0",
+  "author": "Filip Pyrek <PyrekFilip@gmail.com> (https://filip.pyrek.cz)",
+  "license": "MIT",
+  "description": "Repository for my presentation on Serverless Summit 21.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilipPyrek/serverless-summit-21.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FilipPyrek/serverless-summit-21/issues"
+  },
+  "homepage": "https://github.com/FilipPyrek/serverless-summit-21#readme",
+  "scripts": {},
+  "devDependencies": {
+    "aws-sdk": "^2.1028.0",
+    "serverless": "^2.66.1",
+    "serverless-step-functions": "^3.2.0"
+  }
+}

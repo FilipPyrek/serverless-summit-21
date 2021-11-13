@@ -1,0 +1,110 @@
+service: sls-sm-21
+
+plugins:
+  - serverless-step-functions
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: eu-central-1
+  environment:
+    BITCOIN_LEDGER: { "Ref": "BitcoinLedger" }
+    PENDING_TRANSACTIONS_TABLE: { "Ref": "PendingTransactionsTable" }
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - states:SendTaskSuccess
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:DeleteItem
+      Resource: { "Fn::GetAtt": ["PendingTransactionsTable", "Arn"] }
+    - Effect: Allow
+      Action:
+        - dynamodb:Scan
+        - dynamodb:DeleteItem
+      Resource: { "Fn::GetAtt": ["BitcoinLedger", "Arn"] }
+
+functions:
+  pullLedgerData:
+    handler: src/pullLedgerData.handler
+    events:
+      - schedule: rate(5 minutes)
+  createOrder:
+    handler: src/createOrder.handler
+    environment:
+      PROCESS_ORDER_SM: { "Ref": "ProcessOrderStepFunctionsStateMachine" }
+    events:
+      - http:
+          path: order
+          method: PUT
+  generateAddress:
+    handler: src/generateAddress.handler
+  waitForBlocks:
+    handler: src/waitForBlocks.handler
+  shipOrder:
+    handler: src/shipOrder.handler
+
+stepFunctions:
+  validate: true
+  stateMachines:
+    processOrder:
+      definition:
+        StartAt: Generate Bitcoin address QR code
+        States:
+          Generate Bitcoin address QR code:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            OutputPath: "$.Payload"
+            Parameters:
+              FunctionName: { "Ref": "generateAddress" }
+              Payload.$: "$"
+            Next: Wait for 10 block confirmations
+          Wait for 10 block confirmations:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke.waitForTaskToken
+            Parameters:
+              FunctionName: { "Ref": "waitForBlocks" }
+              Payload:
+                input.$: "$"
+                taskToken.$: "$$.Task.Token"
+            Next: Ship customer's order
+          Ship customer's order:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            OutputPath: "$.Payload"
+            Parameters:
+              FunctionName: { "Ref": "shipOrder" }
+              Payload.$: "$"
+            End: true
+
+resources:
+ Resources:
+  BitcoinLedger:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: bitcoin-ledger
+      AttributeDefinitions:
+        - AttributeName: blockHash
+          AttributeType: S
+      KeySchema:
+        - AttributeName: blockHash
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+  PendingTransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: pending-transactions
+      AttributeDefinitions:
+        - AttributeName: address
+          AttributeType: S
+      KeySchema:
+        - AttributeName: address
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
